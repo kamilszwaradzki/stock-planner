@@ -1,0 +1,6 @@
+.venv/
+__pycache__/
+data/
+TODO.md
+.mypy_cache/
+.ruff_cache/
