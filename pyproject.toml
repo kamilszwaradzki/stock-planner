@@ -1,12 +1,12 @@
 [project]
 name = "stock-planner"
 version = "0.1.0"
-description = "Add your description here"
+description = "Demand forecasting and replenishment planning API (FastAPI, pandas, NumPy, DuckDB)"
 readme = "README.md"
 authors = [
     { name = "Kamil Szwaradzki", email = "kamil.szwaradzki@gmail.com" }
 ]
-requires-python = ">=3.13"
+requires-python = ">=3.12"
 dependencies = [
     "duckdb>=2.0.1",
     "fastapi>=0.165.0",
@@ -15,9 +15,6 @@ dependencies = [
     "pydantic-settings>=2.16.3",
     "uvicorn[standard]>=0.54.0",
 ]
-
-[project.scripts]
-stock-planner = "stock_planner:main"
 
 [build-system]
 requires = ["uv_build>=0.13.9,<0.14.0"]
@@ -35,19 +32,21 @@ dev = [
 [tool.ruff]
 line-length = 88
 target-version = "py312"
-extend-exclude = ["*/migrations/*"]
 
 [tool.ruff.lint]
-select = ["E", "F", "I", "B", "DJ"]   # błędy, importy, bugbear, reguły Django
-ignore = ["E501"]   # długością linii zarządza ruff format
+select = ["E", "F", "I", "B", "UP", "N"]
+ignore = ["E501"]
 
 [tool.basedpyright]
 venvPath = "."
 venv = ".venv"
 typeCheckingMode = "standard"
-exclude = ["**/migrations", ".venv"]
+exclude = [".venv"]
 
 [tool.mypy]
 python_version = "3.12"
 strict = true
 plugins = ["pydantic.mypy"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
