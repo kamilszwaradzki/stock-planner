@@ -10,13 +10,19 @@ permissions:
 
 jobs:
   check:
+    name: check (Python ${{ matrix.python-version }})
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.12", "3.13"]
     steps:
       - uses: actions/checkout@v7.0.1
 
       - uses: astral-sh/setup-uv@v10.3.3
         with:
           version: "0.13.10"
+          python-version: ${{ matrix.python-version }}
           enable-cache: true
 
       - name: Install dependencies
@@ -33,3 +39,24 @@ jobs:
 
       - name: Test
         run: uv run pytest
+
+  docker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7.0.1
+
+      - name: Build image
+        run: docker compose build --build-arg UID=$(id -u) --build-arg GID=$(id -g)
+
+      - name: Generate data
+        run: docker compose run --rm generate-data
+
+      - name: Start API and wait for the health check
+        run: docker compose up -d --wait --wait-timeout 60
+
+      - name: Smoke test
+        run: curl --fail --silent "http://localhost:8000/replenishment?warehouse=WH-01"
+
+      - name: Show logs on failure
+        if: failure()
+        run: docker compose logs api

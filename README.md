@@ -154,7 +154,7 @@ An unknown warehouse has its own error rather than reusing `UnknownProductError`
 
 ## Design decisions
 
-- **DuckDB for aggregation, not pandas.** Filtering, grouping by day and joining against a calendar run as one SQL query in DuckDB. It is columnar, multi-threaded and bounded by a memory limit, so the same code scales from this dataset to sales files that would not fit comfortably in a pandas DataFrame. pandas is used only for the final weekly resample on one product's series.
+- **DuckDB for aggregation, not pandas.** Filtering, grouping by day and joining against a calendar run as one SQL query in DuckDB. Aggregation stays in SQL instead of application code, so moving to larger data means reading Parquet and replacing the temp tables with views, without touching the domain or the API. pandas is used only for the final weekly resample on one product's series.
 - **In-memory table, not a view.** The CSV files are loaded into DuckDB temp tables once, at startup. A view over `read_csv` would re-parse the files on every request. The trade-off: new data needs a restart.
 - **Missing days are filled with zeros.** A day with no sales row means nothing sold, not that data is missing. Without the zeros, average demand and its standard deviation would only describe days that had sales, overstating demand and understating its variability. Each product's calendar runs from its first sale to the last date in the dataset, so a product that stopped selling shows trailing zeros.
 - **Only complete weeks.** If the data ends on a Wednesday, the last "week" holds 3 days of sales and looks like a sudden drop in demand. That week weighs most in both forecasting methods, so partial first and last weeks are dropped.
@@ -180,4 +180,4 @@ uv run ruff format --check .
 uv run mypy src tests
 ```
 
-GitHub Actions runs the same checks on every push to `main` and on every pull request.
+GitHub Actions runs the same checks on every push to `main` and on every pull request, on Python 3.12 (the minimum supported version, also used in the Docker image) and 3.13 (the development version in `.python-version`). A separate job builds the image, generates data, waits for the health check and calls `/replenishment`.
