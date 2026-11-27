@@ -1,17 +1,12 @@
-from collections.abc import Iterator
-from pathlib import Path
-
 import pandas as pd
 import pytest
+from conftest import RepositoryFactory
 
 from stock_planner.infrastructure.sales_repository import SalesRepository
 
 
 @pytest.fixture
-def repository(tmp_path: Path) -> Iterator[SalesRepository]:
-    sales_path = tmp_path / "sales.csv"
-    stock_path = tmp_path / "stock.csv"
-
+def repository(make_repository: RepositoryFactory) -> SalesRepository:
     sales = pd.DataFrame(
         {
             "date": [
@@ -49,16 +44,7 @@ def repository(tmp_path: Path) -> Iterator[SalesRepository]:
         }
     )
 
-    sales.to_csv(sales_path, index=False)
-    stock.to_csv(stock_path, index=False)
-
-    repo = SalesRepository(
-        sales_path=sales_path,
-        stock_path=stock_path,
-    )
-
-    yield repo
-    repo.close()
+    return make_repository(sales, stock)
 
 
 def test_weekly_sales_sums_days_into_weeks(
