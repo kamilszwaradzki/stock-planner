@@ -1,4 +1,4 @@
-from dataclasses import FrozenInstanceError
+from dataclasses import FrozenInstanceError, fields
 
 import pytest
 
@@ -167,11 +167,12 @@ def test_plan_replenishment_without_order() -> None:
     assert plan.needs_order is False
 
 
-def test_plan_is_immutable() -> None:
+@pytest.mark.parametrize("field", [field.name for field in fields(ReplenishmentPlan)])
+def test_plan_is_immutable(field: str) -> None:
     plan = plan_replenishment(DEMAND, on_hand=30, on_order=10, lead_time_days=4)
 
     with pytest.raises(FrozenInstanceError):
-        plan.order_quantity = 1
+        setattr(plan, field, 1)
 
 
 def test_plan_replenishment_rejects_zero_review_period() -> None:
