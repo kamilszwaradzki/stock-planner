@@ -6,9 +6,11 @@ API, a CLI or a batch job.
 
 import math
 from dataclasses import dataclass
+from datetime import date
 from enum import StrEnum
 
 import numpy as np
+import pandas as pd
 
 from stock_planner.domain.errors import UnknownProductError, UnknownWarehouseError
 from stock_planner.domain.forecasting import (
@@ -62,15 +64,47 @@ class ReplenishmentItem:
         return self.order_quantity > 0
 
 
-def _weekly_history(
+@dataclass(frozen=True)
+class WeeklySales:
+    week: date
+    quantity: int
+
+
+def list_products(repository: SalesRepository) -> list[str]:
+    return repository.list_skus()
+
+
+def _weekly_frame(
     repository: SalesRepository, sku: str, warehouse: str
-) -> FloatArray:
+) -> pd.DataFrame:
     weekly = repository.weekly_sales(sku, warehouse)
 
     if weekly.empty:
         raise UnknownProductError(f"No sales for {sku} in {warehouse}")
 
+    return weekly
+
+
+def _weekly_history(
+    repository: SalesRepository, sku: str, warehouse: str
+) -> FloatArray:
+    weekly = _weekly_frame(repository, sku, warehouse)
     return weekly["quantity"].to_numpy(dtype=np.float64)
+
+
+def product_weekly_sales(
+    repository: SalesRepository, sku: str, warehouse: str
+) -> list[WeeklySales]:
+    weekly = _weekly_frame(repository, sku, warehouse)
+
+    return [
+        WeeklySales(week=week.date(), quantity=quantity)
+        for week, quantity in zip(
+            pd.DatetimeIndex(weekly["week"]),
+            weekly["quantity"].astype(int).tolist(),
+            strict=True,
+        )
+    ]
 
 
 def forecast_product(
