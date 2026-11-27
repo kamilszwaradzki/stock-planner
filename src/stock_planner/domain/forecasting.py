@@ -61,6 +61,9 @@ def mean_absolute_error(actual: History, predicted: History) -> float:
     actual_values = np.asarray(actual, dtype=np.float64)
     predicted_values = np.asarray(predicted, dtype=np.float64)
 
+    if actual_values.size == 0:
+        raise ValueError("actual and predicted must not be empty")
+
     if actual_values.shape != predicted_values.shape:
         raise ValueError("actual and predicted must have the same length")
 
