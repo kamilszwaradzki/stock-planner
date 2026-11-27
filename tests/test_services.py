@@ -1,7 +1,8 @@
 import math
 
+import pandas as pd
 import pytest
-from conftest import WAREHOUSE
+from conftest import WAREHOUSE, RepositoryFactory
 
 from stock_planner.application.services import (
     MethodChoice,
@@ -154,3 +155,31 @@ def test_plan_warehouse_replenishment_unknown_warehouse_raises(
 ) -> None:
     with pytest.raises(UnknownWarehouseError):
         plan_warehouse_replenishment(planning_repository, "WH-99")
+
+
+def test_forecast_product_without_full_week_raises_insufficient_history(
+    make_repository: RepositoryFactory,
+) -> None:
+    sales = pd.DataFrame(
+        {
+            "date": ["2024-01-03", "2024-01-04"],
+            "sku": "SKU-001",
+            "warehouse": WAREHOUSE,
+            "quantity": 5,
+        }
+    )
+    stock = pd.DataFrame(
+        {
+            "sku": ["SKU-001"],
+            "warehouse": [WAREHOUSE],
+            "on_hand": [0],
+            "on_order": [0],
+            "lead_time_days": [1],
+        }
+    )
+    repository = make_repository(sales, stock)
+
+    with pytest.raises(InsufficientHistoryError, match="complete"):
+        forecast_product(
+            repository, "SKU-001", WAREHOUSE, MethodChoice.EXPONENTIAL_SMOOTHING, 4
+        )

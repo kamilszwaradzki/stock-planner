@@ -12,7 +12,11 @@ from enum import StrEnum
 import numpy as np
 import pandas as pd
 
-from stock_planner.domain.errors import UnknownProductError, UnknownWarehouseError
+from stock_planner.domain.errors import (
+    InsufficientHistoryError,
+    UnknownProductError,
+    UnknownWarehouseError,
+)
 from stock_planner.domain.forecasting import (
     FloatArray,
     ForecastMethod,
@@ -80,7 +84,11 @@ def _weekly_frame(
     weekly = repository.weekly_sales(sku, warehouse)
 
     if weekly.empty:
-        raise UnknownProductError(f"No sales for {sku} in {warehouse}")
+        if repository.daily_demand(sku, warehouse).empty:
+            raise UnknownProductError(f"No sales for {sku} in {warehouse}")
+        raise InsufficientHistoryError(
+            f"No complete Monday-to-Sunday week of sales for {sku} in {warehouse}"
+        )
 
     return weekly
 

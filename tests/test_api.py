@@ -178,3 +178,10 @@ def test_replenishment_invalid_service_level_returns_422(
 
     assert response.status_code == 422
     assert response.json()["detail"][0]["loc"] == ["query", "service_level"]
+
+
+def test_sales_returns_only_full_weeks(client: TestClient) -> None:
+    response = client.get("/products/SKU-002/sales", params={"warehouse": WAREHOUSE})
+
+    assert response.status_code == 200
+    assert response.json() == [{"week": "2024-03-18", "quantity": 35}]

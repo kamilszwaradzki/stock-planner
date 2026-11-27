@@ -3,6 +3,8 @@ from pathlib import Path
 import duckdb
 import pandas as pd
 
+DAYS_PER_WEEK = 7
+
 
 class SalesRepository:
     def __init__(
@@ -121,13 +123,15 @@ class SalesRepository:
         sku: str,
         warehouse: str,
     ) -> pd.DataFrame:
+        """Sum daily demand into Monday-to-Sunday weeks, keeping only full weeks."""
         daily = self.daily_demand(sku, warehouse)
 
-        weekly = daily.resample(
+        weeks = daily.resample(
             "W-MON",
             label="left",
             closed="left",
-        ).sum()
+        )
+        weekly = weeks.sum()[weeks.count() == DAYS_PER_WEEK]
 
         return weekly.rename_axis("week").reset_index(name="quantity")
 

@@ -52,13 +52,8 @@ def test_weekly_sales_sums_days_into_weeks(
 ) -> None:
     result = repository.weekly_sales("SKU-001", "WH-01")
 
-    assert len(result) == 2
-    assert result["quantity"].tolist() == [15, 3]
-
-    assert result["week"].tolist() == [
-        pd.Timestamp("2024-01-01"),
-        pd.Timestamp("2024-01-08"),
-    ]
+    assert result["week"].tolist() == [pd.Timestamp("2024-01-01")]
+    assert result["quantity"].tolist() == [15]
 
 
 def test_daily_demand_fills_missing_days_with_zero(
@@ -95,9 +90,47 @@ def test_list_skus_returns_unique_sorted(
     ]
 
 
-def test_weekly_sales_drops_incomplete_weeks(
+def test_weekly_sales_drops_incomplete_last_week(
     repository: SalesRepository,
 ) -> None:
     result = repository.weekly_sales("SKU-001", "WH-01")
 
-    assert pd.Timestamp("2024-01-15") not in result["week"].tolist()
+    assert pd.Timestamp("2024-01-08") not in result["week"].tolist()
+
+
+def test_weekly_sales_without_full_week_is_empty(
+    repository: SalesRepository,
+) -> None:
+    assert repository.weekly_sales("SKU-002", "WH-01").empty
+    assert not repository.daily_demand("SKU-002", "WH-01").empty
+
+
+def test_weekly_sales_drops_incomplete_first_week(
+    make_repository: RepositoryFactory,
+) -> None:
+    dates = pd.date_range("2024-01-03", "2024-01-21", freq="D")
+    sales = pd.DataFrame(
+        {
+            "date": dates.strftime("%Y-%m-%d"),
+            "sku": "SKU-001",
+            "warehouse": "WH-01",
+            "quantity": 1,
+        }
+    )
+    stock = pd.DataFrame(
+        {
+            "sku": ["SKU-001"],
+            "warehouse": ["WH-01"],
+            "on_hand": [0],
+            "on_order": [0],
+            "lead_time_days": [1],
+        }
+    )
+
+    result = make_repository(sales, stock).weekly_sales("SKU-001", "WH-01")
+
+    assert result["week"].tolist() == [
+        pd.Timestamp("2024-01-08"),
+        pd.Timestamp("2024-01-15"),
+    ]
+    assert result["quantity"].tolist() == [7, 7]
