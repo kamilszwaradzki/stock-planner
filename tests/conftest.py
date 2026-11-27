@@ -28,3 +28,40 @@ def make_repository(tmp_path: Path) -> Iterator[RepositoryFactory]:
 
     for repository in repositories:
         repository.close()
+
+
+DATES = pd.date_range("2024-01-01", periods=12 * 7, freq="D")
+WAREHOUSE = "WH-01"
+
+
+def _daily_sales(sku: str, quantity: int, dates: pd.DatetimeIndex) -> pd.DataFrame:
+    return pd.DataFrame(
+        {
+            "date": dates.strftime("%Y-%m-%d"),
+            "sku": sku,
+            "warehouse": WAREHOUSE,
+            "quantity": quantity,
+        }
+    )
+
+
+@pytest.fixture
+def planning_repository(make_repository: RepositoryFactory) -> SalesRepository:
+    sales = pd.concat(
+        [
+            _daily_sales("SKU-001", 10, DATES),
+            _daily_sales("SKU-002", 5, DATES[-7:]),
+            _daily_sales("SKU-003", 2, DATES),
+            _daily_sales("SKU-004", 0, DATES),
+        ]
+    )
+    stock = pd.DataFrame(
+        {
+            "sku": ["SKU-001", "SKU-002", "SKU-003", "SKU-004"],
+            "warehouse": WAREHOUSE,
+            "on_hand": [0, 20, 500, 10],
+            "on_order": [0, 0, 0, 0],
+            "lead_time_days": [7, 5, 7, 7],
+        }
+    )
+    return make_repository(sales, stock)
