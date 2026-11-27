@@ -214,6 +214,10 @@ def plan_warehouse_replenishment(
     for sku, on_hand, on_order, lead_time_days in rows:
         daily = repository.daily_demand(sku, warehouse)
 
+        if daily.empty:
+            skipped.append(SkippedProduct(sku=sku, reason="No sales history yet"))
+            continue
+
         try:
             plan = plan_replenishment(
                 daily.to_numpy(dtype=np.float64),
@@ -222,8 +226,13 @@ def plan_warehouse_replenishment(
                 lead_time_days=lead_time_days,
                 service_level=service_level,
             )
-        except InsufficientHistoryError as error:
-            skipped.append(SkippedProduct(sku=sku, reason=str(error)))
+        except InsufficientHistoryError:
+            skipped.append(
+                SkippedProduct(
+                    sku=sku,
+                    reason=f"Not enough sales history yet ({len(daily)} day)",
+                )
+            )
             continue
 
         items.append(

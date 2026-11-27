@@ -189,7 +189,7 @@ def test_replenishment_skips_product_without_sales(
 
     assert response.status_code == 200
     assert response.json()["skipped"] == [
-        {"sku": "SKU-NEW", "reason": "Safety stock needs at least 2 days, got 0"}
+        {"sku": "SKU-NEW", "reason": "No sales history yet"}
     ]
 
 

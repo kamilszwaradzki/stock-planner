@@ -195,9 +195,7 @@ def test_plan_warehouse_replenishment_skips_products_without_history(
 
     assert "SKU-NEW" not in [item.sku for item in plan.items]
     assert plan.skipped == [
-        SkippedProduct(
-            sku="SKU-NEW", reason="Safety stock needs at least 2 days, got 0"
-        )
+        SkippedProduct(sku="SKU-NEW", reason="No sales history yet")
     ]
 
 
@@ -210,3 +208,32 @@ def test_forecast_product_auto_falls_back_to_moving_average(
 
     assert result.method is ForecastMethod.MOVING_AVERAGE
     assert result.forecast == pytest.approx([21.0, 21.0])
+
+
+def test_plan_warehouse_replenishment_skips_product_with_one_day_of_sales(
+    make_repository: RepositoryFactory,
+) -> None:
+    sales = pd.DataFrame(
+        {
+            "date": ["2024-01-01", "2024-01-02", "2024-01-02"],
+            "sku": ["SKU-001", "SKU-001", "SKU-002"],
+            "warehouse": WAREHOUSE,
+            "quantity": [4, 6, 3],
+        }
+    )
+    stock = pd.DataFrame(
+        {
+            "sku": ["SKU-001", "SKU-002"],
+            "warehouse": WAREHOUSE,
+            "on_hand": [0, 0],
+            "on_order": [0, 0],
+            "lead_time_days": [2, 2],
+        }
+    )
+
+    plan = plan_warehouse_replenishment(make_repository(sales, stock), WAREHOUSE)
+
+    assert [item.sku for item in plan.items] == ["SKU-001"]
+    assert plan.skipped == [
+        SkippedProduct(sku="SKU-002", reason="Not enough sales history yet (1 day)")
+    ]
