@@ -50,3 +50,15 @@ class ReplenishmentItemResponse(_FromAttributes):
         if value is None or math.isinf(value):
             return None
         return value
+
+
+class SkippedProductResponse(_FromAttributes):
+    sku: str
+    reason: str
+
+
+class ReplenishmentResponse(_FromAttributes):
+    items: list[ReplenishmentItemResponse]
+    skipped: list[SkippedProductResponse] = Field(
+        description="Products left out because their history is too short to plan.",
+    )

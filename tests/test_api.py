@@ -27,7 +27,7 @@ def test_list_products(client: TestClient) -> None:
     response = client.get("/products")
 
     assert response.status_code == 200
-    assert response.json() == ["SKU-001", "SKU-002", "SKU-003", "SKU-004"]
+    assert response.json() == ["SKU-001", "SKU-002", "SKU-003", "SKU-004", "SKU-005"]
 
 
 def test_sales_returns_weekly_points(client: TestClient) -> None:
@@ -79,6 +79,23 @@ def test_forecast_short_history_returns_422(client: TestClient) -> None:
     response = client.get("/products/SKU-002/forecast", params={"warehouse": WAREHOUSE})
 
     assert response.status_code == 422
+    assert "Moving average needs at least 4 weeks" in response.json()["detail"]
+
+
+def test_forecast_auto_falls_back_to_moving_average_without_backtest(
+    client: TestClient,
+) -> None:
+    response = client.get("/products/SKU-005/forecast", params={"warehouse": WAREHOUSE})
+
+    assert response.status_code == 200
+    assert response.json()["method"] == "moving_average"
+    assert response.json()["forecast"] == [21.0] * 4
+
+
+def test_backtest_short_history_returns_422(client: TestClient) -> None:
+    response = client.get("/products/SKU-005/backtest", params={"warehouse": WAREHOUSE})
+
+    assert response.status_code == 422
     assert "12 weeks" in response.json()["detail"]
 
 
@@ -127,9 +144,9 @@ def test_replenishment_lists_most_urgent_first(client: TestClient) -> None:
     response = client.get("/replenishment", params={"warehouse": WAREHOUSE})
 
     assert response.status_code == 200
-    body = response.json()
-    assert [item["sku"] for item in body] == ["SKU-001", "SKU-002"]
-    assert body[0] == {
+    items = response.json()["items"]
+    assert [item["sku"] for item in items] == ["SKU-001", "SKU-002"]
+    assert items[0] == {
         "sku": "SKU-001",
         "average_daily_demand": 10.0,
         "safety_stock": 0.0,
@@ -150,15 +167,30 @@ def test_replenishment_full_overview_serializes_infinite_cover_as_null(
     )
 
     assert response.status_code == 200
-    body = response.json()
-    assert [item["sku"] for item in body] == [
+    items = response.json()["items"]
+    assert [item["sku"] for item in items] == [
         "SKU-001",
         "SKU-002",
         "SKU-003",
         "SKU-004",
     ]
-    assert body[-1]["days_of_cover"] is None
-    assert body[-1]["needs_order"] is False
+    assert items[-1]["days_of_cover"] is None
+    assert items[-1]["needs_order"] is False
+
+
+@pytest.mark.parametrize("only_needing_order", [True, False])
+def test_replenishment_skips_product_without_sales(
+    client: TestClient, only_needing_order: bool
+) -> None:
+    response = client.get(
+        "/replenishment",
+        params={"warehouse": WAREHOUSE, "only_needing_order": only_needing_order},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["skipped"] == [
+        {"sku": "SKU-NEW", "reason": "Safety stock needs at least 2 days, got 0"}
+    ]
 
 
 def test_replenishment_unknown_warehouse_returns_404(client: TestClient) -> None:

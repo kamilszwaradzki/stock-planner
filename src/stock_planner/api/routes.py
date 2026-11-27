@@ -7,7 +7,7 @@ from stock_planner.api.schemas import (
     BacktestResponse,
     ForecastResponse,
     HealthResponse,
-    ReplenishmentItemResponse,
+    ReplenishmentResponse,
     WeeklySalesPoint,
 )
 from stock_planner.application import services
@@ -64,8 +64,8 @@ def replenishment(
     warehouse: Warehouse,
     service_level: Annotated[float, Query(gt=0, lt=1)] = 0.95,
     only_needing_order: bool = True,
-) -> list[ReplenishmentItemResponse]:
-    items = services.plan_warehouse_replenishment(
+) -> ReplenishmentResponse:
+    plan = services.plan_warehouse_replenishment(
         repository, warehouse, service_level, only_needing_order
     )
-    return [ReplenishmentItemResponse.model_validate(item) for item in items]
+    return ReplenishmentResponse.model_validate(plan)

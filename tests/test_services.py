@@ -6,6 +6,7 @@ from conftest import WAREHOUSE, RepositoryFactory
 
 from stock_planner.application.services import (
     MethodChoice,
+    SkippedProduct,
     backtest_product,
     forecast_product,
     plan_warehouse_replenishment,
@@ -120,7 +121,7 @@ def test_plan_warehouse_replenishment_sorts_by_days_of_cover(
 ) -> None:
     items = plan_warehouse_replenishment(
         planning_repository, WAREHOUSE, only_needing_order=False
-    )
+    ).items
 
     assert [item.sku for item in items] == ["SKU-001", "SKU-002", "SKU-003", "SKU-004"]
     assert [item.days_of_cover for item in items] == pytest.approx(
@@ -131,7 +132,7 @@ def test_plan_warehouse_replenishment_sorts_by_days_of_cover(
 def test_plan_warehouse_replenishment_only_needing_order(
     planning_repository: SalesRepository,
 ) -> None:
-    items = plan_warehouse_replenishment(planning_repository, WAREHOUSE)
+    items = plan_warehouse_replenishment(planning_repository, WAREHOUSE).items
 
     assert [item.sku for item in items] == ["SKU-001", "SKU-002"]
     assert all(item.needs_order for item in items)
@@ -140,7 +141,7 @@ def test_plan_warehouse_replenishment_only_needing_order(
 def test_plan_warehouse_replenishment_item_values(
     planning_repository: SalesRepository,
 ) -> None:
-    first = plan_warehouse_replenishment(planning_repository, WAREHOUSE)[0]
+    first = plan_warehouse_replenishment(planning_repository, WAREHOUSE).items[0]
 
     assert first.sku == "SKU-001"
     assert first.average_daily_demand == pytest.approx(10.0)
@@ -183,3 +184,29 @@ def test_forecast_product_without_full_week_raises_insufficient_history(
         forecast_product(
             repository, "SKU-001", WAREHOUSE, MethodChoice.EXPONENTIAL_SMOOTHING, 4
         )
+
+
+def test_plan_warehouse_replenishment_skips_products_without_history(
+    planning_repository: SalesRepository,
+) -> None:
+    plan = plan_warehouse_replenishment(
+        planning_repository, WAREHOUSE, only_needing_order=False
+    )
+
+    assert "SKU-NEW" not in [item.sku for item in plan.items]
+    assert plan.skipped == [
+        SkippedProduct(
+            sku="SKU-NEW", reason="Safety stock needs at least 2 days, got 0"
+        )
+    ]
+
+
+def test_forecast_product_auto_falls_back_to_moving_average(
+    planning_repository: SalesRepository,
+) -> None:
+    result = forecast_product(
+        planning_repository, "SKU-005", WAREHOUSE, MethodChoice.AUTO, horizon=2
+    )
+
+    assert result.method is ForecastMethod.MOVING_AVERAGE
+    assert result.forecast == pytest.approx([21.0, 21.0])

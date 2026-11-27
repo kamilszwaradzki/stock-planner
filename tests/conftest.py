@@ -53,15 +53,16 @@ def planning_repository(make_repository: RepositoryFactory) -> SalesRepository:
             _daily_sales("SKU-002", 5, DATES[-7:]),
             _daily_sales("SKU-003", 2, DATES),
             _daily_sales("SKU-004", 0, DATES),
+            _daily_sales("SKU-005", 3, DATES[-5 * 7 :]),
         ]
     )
     stock = pd.DataFrame(
         {
-            "sku": ["SKU-001", "SKU-002", "SKU-003", "SKU-004"],
+            "sku": ["SKU-001", "SKU-002", "SKU-003", "SKU-004", "SKU-NEW"],
             "warehouse": WAREHOUSE,
-            "on_hand": [0, 20, 500, 10],
-            "on_order": [0, 0, 0, 0],
-            "lead_time_days": [7, 5, 7, 7],
+            "on_hand": [0, 20, 500, 10, 0],
+            "on_order": [0, 0, 0, 0, 0],
+            "lead_time_days": [7, 5, 7, 7, 7],
         }
     )
     return make_repository(sales, stock)

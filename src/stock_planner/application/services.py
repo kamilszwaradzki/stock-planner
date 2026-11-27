@@ -69,6 +69,18 @@ class ReplenishmentItem:
 
 
 @dataclass(frozen=True)
+class SkippedProduct:
+    sku: str
+    reason: str
+
+
+@dataclass(frozen=True)
+class WarehousePlan:
+    items: list[ReplenishmentItem]
+    skipped: list[SkippedProduct]
+
+
+@dataclass(frozen=True)
 class WeeklySales:
     week: date
     quantity: int
@@ -115,6 +127,14 @@ def product_weekly_sales(
     ]
 
 
+def _auto_method(history: FloatArray) -> ForecastMethod:
+    """Pick a method by backtest, or fall back to moving average if history is too short."""
+    try:
+        return best_method(history)
+    except InsufficientHistoryError:
+        return ForecastMethod.MOVING_AVERAGE
+
+
 def forecast_product(
     repository: SalesRepository,
     sku: str,
@@ -125,7 +145,7 @@ def forecast_product(
     history = _weekly_history(repository, sku, warehouse)
 
     used_method = (
-        best_method(history)
+        _auto_method(history)
         if method is MethodChoice.AUTO
         else ForecastMethod(method.value)
     )
@@ -169,14 +189,19 @@ def plan_warehouse_replenishment(
     warehouse: str,
     service_level: float = 0.95,
     only_needing_order: bool = True,
-) -> list[ReplenishmentItem]:
-    """Plan orders for every product in a warehouse, most urgent first."""
+) -> WarehousePlan:
+    """Plan orders for every product in a warehouse, most urgent first.
+
+    Products whose history is too short to plan are listed in `skipped`
+    instead of failing the whole warehouse.
+    """
     stock = repository.stock_levels(warehouse)
 
     if stock.empty:
         raise UnknownWarehouseError(f"No stock records for warehouse {warehouse}")
 
     items: list[ReplenishmentItem] = []
+    skipped: list[SkippedProduct] = []
 
     rows = zip(
         stock["sku"].astype(str).tolist(),
@@ -189,13 +214,17 @@ def plan_warehouse_replenishment(
     for sku, on_hand, on_order, lead_time_days in rows:
         daily = repository.daily_demand(sku, warehouse)
 
-        plan = plan_replenishment(
-            daily.to_numpy(dtype=np.float64),
-            on_hand=on_hand,
-            on_order=on_order,
-            lead_time_days=lead_time_days,
-            service_level=service_level,
-        )
+        try:
+            plan = plan_replenishment(
+                daily.to_numpy(dtype=np.float64),
+                on_hand=on_hand,
+                on_order=on_order,
+                lead_time_days=lead_time_days,
+                service_level=service_level,
+            )
+        except InsufficientHistoryError as error:
+            skipped.append(SkippedProduct(sku=sku, reason=str(error)))
+            continue
 
         items.append(
             ReplenishmentItem(
@@ -214,4 +243,7 @@ def plan_warehouse_replenishment(
     if only_needing_order:
         items = [item for item in items if item.needs_order]
 
-    return sorted(items, key=lambda item: item.days_of_cover)
+    return WarehousePlan(
+        items=sorted(items, key=lambda item: item.days_of_cover),
+        skipped=skipped,
+    )
