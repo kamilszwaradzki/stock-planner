@@ -1,6 +1,7 @@
 .venv/
 __pycache__/
-data/
+data/*
+!data/.gitkeep
 TODO.md
 .mypy_cache/
 .ruff_cache/
