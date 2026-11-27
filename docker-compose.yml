@@ -1,0 +1,20 @@
+services:
+  api:
+    build: .
+    image: stock-planner
+    ports:
+      - "8000:8000"
+    environment:
+      STOCK_PLANNER_DATA_DIR: /app/data
+      STOCK_PLANNER_DUCKDB_MEMORY_LIMIT: 512MB
+    volumes:
+      - ./data:/app/data:ro
+    mem_limit: 1g
+    restart: unless-stopped
+
+  generate-data:
+    image: stock-planner
+    profiles: [tools]
+    volumes:
+      - ./data:/app/data
+    command: ["python", "scripts/generate_data.py"]

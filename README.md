@@ -83,6 +83,18 @@ uv run uvicorn stock_planner.api.main:app --reload
 
 Interactive docs: http://localhost:8000/docs
 
+### With Docker
+
+```bash
+docker compose build
+docker compose run --rm generate-data
+docker compose up -d
+```
+
+The image is a two-stage build on `python:3.12-slim`. The first stage installs the locked dependencies with uv. The second copies only the resulting virtual environment, so neither uv nor any build tooling ships in the final image. The app runs as a non-root user, and a health check calls `/health`.
+
+`data/` is mounted as a volume: read-only for the API, writable for the one-off `generate-data` service. The container user has uid 1000, so generated files belong to a typical host user. On a host where your uid differs, build with `docker compose build --build-arg UID=$(id -u) --build-arg GID=$(id -g)`.
+
 `scripts/generate_data.py` writes synthetic data to `data/`: two years of daily sales (2024–2025) for 20 products in 2 warehouses, with weekly seasonality, per-product trends and a few slow movers, plus a stock snapshot.
 
 ### Data
